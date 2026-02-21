@@ -1,0 +1,403 @@
+{% extends "admin/base_admin.html" %}
+{% block title %}Satellite Intelligence — CivicConnect{% endblock %}
+{% block page_title %}Satellite Intelligence{% endblock %}
+{% block page_sub %}Monthly satellite scans, auto-detection and citizen report confirmation{% endblock %}
+{% block head %}
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+{% endblock %}
+
+{% block content %}
+
+<!-- ── STATS ROW ──────────────────────────────────────────── -->
+<div class="stats-grid" style="grid-template-columns:repeat(4,1fr)">
+  <div class="stat-card blue">
+    <div class="stat-icon">🛰️</div>
+    <div class="stat-val">{{ stats.total_scans }}</div>
+    <div class="stat-label">Total Scans</div>
+  </div>
+  <div class="stat-card orange">
+    <div class="stat-icon">🤖</div>
+    <div class="stat-val">{{ stats.auto_reports }}</div>
+    <div class="stat-label">Auto-Generated Reports</div>
+  </div>
+  <div class="stat-card green">
+    <div class="stat-icon">✅</div>
+    <div class="stat-val">{{ stats.confirmed }}</div>
+    <div class="stat-label">Citizen Reports Confirmed</div>
+  </div>
+  <div class="stat-card cyan">
+    <div class="stat-icon">📅</div>
+    <div class="stat-val" style="font-size:1rem">{{ stats.next_scan }}</div>
+    <div class="stat-label">Next Scheduled Scan</div>
+  </div>
+</div>
+
+<!-- ── LAST SCAN BANNER ───────────────────────────────────── -->
+{% if stats.last_scan %}
+<div style="background:linear-gradient(135deg,#0f0f23,#1a1a3e);border-radius:14px;padding:20px 28px;margin-bottom:24px;display:flex;align-items:center;gap:20px;color:#fff">
+  <div style="font-size:3rem">🛰️</div>
+  <div style="flex:1">
+    <div style="font-weight:800;font-size:1.1rem;margin-bottom:4px">Last Scan: {{ stats.last_scan.area_name }}</div>
+    <div style="font-size:.88rem;color:#94a3b8">{{ stats.last_scan.scan_date[:16] }} UTC</div>
+  </div>
+  <div style="display:flex;gap:10px">
+    <button onclick="document.getElementById('scanModal').style.display='flex'"
+      class="btn btn-primary">🛰️ Run New Scan</button>
+    <a href="#scan-history" class="btn btn-outline" style="color:#fff;border-color:rgba(255,255,255,.2)">View History</a>
+  </div>
+</div>
+{% else %}
+<div style="background:linear-gradient(135deg,#0f0f23,#1a1a3e);border-radius:14px;padding:20px 28px;margin-bottom:24px;display:flex;align-items:center;gap:20px;color:#fff">
+  <div style="font-size:3rem">🛰️</div>
+  <div style="flex:1">
+    <div style="font-weight:800;font-size:1.1rem">No scans run yet</div>
+    <div style="font-size:.88rem;color:#94a3b8">Run your first satellite scan to start auto-detecting civic issues</div>
+  </div>
+  <button onclick="document.getElementById('scanModal').style.display='flex'" class="btn btn-primary">🛰️ Run First Scan</button>
+</div>
+{% endif %}
+
+<!-- ── TWO COLUMN LAYOUT ──────────────────────────────────── -->
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-bottom:24px">
+
+  <!-- Satellite Map -->
+  <div class="card">
+    <div class="card-header">
+      <div class="card-title">🗺️ Satellite Issues Map</div>
+      <div style="display:flex;gap:6px">
+        <button class="btn btn-sm" style="background:#dc2626;color:#fff;font-size:.75rem" onclick="filterMap('satellite')">🛰️ Satellite</button>
+        <button class="btn btn-sm" style="background:#1a56db;color:#fff;font-size:.75rem" onclick="filterMap('citizen')">👤 Citizen</button>
+        <button class="btn btn-sm btn-outline" style="font-size:.75rem" onclick="filterMap('all')">All</button>
+      </div>
+    </div>
+    <div style="height:380px;position:relative">
+      <div id="satMap" style="height:100%;width:100%;border-radius:0 0 12px 12px"></div>
+    </div>
+  </div>
+
+  <!-- Run New Scan Panel -->
+  <div class="card">
+    <div class="card-header"><div class="card-title">🛰️ Quick Scan</div></div>
+    <div class="card-body">
+      <p class="text-sm text-muted mb-4">Trigger an instant satellite scan for any area. The system will auto-detect issues and match them against existing citizen reports.</p>
+      <form method="POST" action="/admin/satellite/scan" id="quickScanForm">
+        <div class="form-group">
+          <label>Area Name</label>
+          <input type="text" name="area_name" value="City Center" required>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
+          <div class="form-group">
+            <label>Latitude</label>
+            <input type="number" name="latitude" value="40.7128" step="0.0001" required>
+          </div>
+          <div class="form-group">
+            <label>Longitude</label>
+            <input type="number" name="longitude" value="-74.0060" step="0.0001" required>
+          </div>
+        </div>
+        <div class="form-group">
+          <label>Radius (km)</label>
+          <select name="radius">
+            <option value="2">2 km — Small area</option>
+            <option value="5" selected>5 km — City district</option>
+            <option value="10">10 km — Large area</option>
+            <option value="25">25 km — Entire city</option>
+          </select>
+        </div>
+        <div style="background:#fef3c7;border:1px solid #fde68a;border-radius:8px;padding:12px;margin-bottom:16px">
+          <p style="font-size:.82rem;color:#92400e">💡 <strong>Tip:</strong> First scan uses demo satellite imagery. Connect Sentinel Hub credentials in satellite_engine.py for real imagery.</p>
+        </div>
+        <button type="submit" class="btn btn-primary btn-full" id="scanBtn">
+          🛰️ Start Satellite Scan
+        </button>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- ── HOW IT WORKS ───────────────────────────────────────── -->
+<div class="card mb-6">
+  <div class="card-header"><div class="card-title">⚙️ How Satellite Intelligence Works</div></div>
+  <div class="card-body">
+    <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:16px;text-align:center">
+      {% for step,icon,title,desc in [
+        (1,'📡','Fetch Image','Satellite imagery fetched for selected area'),
+        (2,'🔍','AI Analysis','OpenCV detects anomalies — potholes, flooding, dumps'),
+        (3,'🔄','Deduplication','Checks if citizen already reported same issue (50m radius)'),
+        (4,'✅','Confirm','Satellite confirms citizen report + upgrades severity if needed'),
+        (5,'🆕','Auto-Report','No citizen match? System creates report automatically'),
+      ] %}
+      <div style="padding:16px;background:#f8fafc;border-radius:10px;border:1px solid #e2e8f0">
+        <div style="width:32px;height:32px;background:#1a56db;color:#fff;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:.9rem;margin:0 auto 10px">{{ step }}</div>
+        <div style="font-size:1.5rem;margin-bottom:8px">{{ icon }}</div>
+        <div style="font-weight:700;font-size:.88rem;margin-bottom:4px">{{ title }}</div>
+        <div style="font-size:.78rem;color:#64748b">{{ desc }}</div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+
+<!-- ── SATELLITE AUTO-REPORTS ─────────────────────────────── -->
+<div class="section-title">🤖 Satellite Auto-Generated Reports</div>
+<div class="card mb-6">
+  <div class="card-body" style="padding:0">
+    {% if sat_reports %}
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>Report ID</th><th>Issue Type</th><th>Category</th><th>Severity</th><th>Location</th><th>Status</th><th>Detected</th></tr>
+        </thead>
+        <tbody>
+          {% for r in sat_reports %}
+          <tr>
+            <td>
+              <code style="font-size:.8rem;color:#1a56db">{{ r['report_id'] }}</code>
+              <div style="font-size:.72rem;background:#e0f2fe;color:#0369a1;padding:1px 8px;border-radius:99px;display:inline-block;margin-top:2px">🛰️ Satellite</div>
+            </td>
+            <td style="font-weight:600;font-size:.9rem">{{ r['title'][:40] }}...</td>
+            <td><span style="background:#f1f5f9;padding:3px 9px;border-radius:99px;font-size:.8rem">{{ r['category'] }}</span></td>
+            <td>
+              {% set sev=r['severity'] %}
+              <span class="badge badge-{{ sev.lower() }}">
+                {% if sev=='Critical' %}🔴{% elif sev=='High' %}🟠{% elif sev=='Medium' %}🟡{% else %}🟢{% endif %} {{ sev }}
+              </span>
+            </td>
+            <td style="font-size:.8rem;color:#64748b;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">
+              📍 {{ r['location_address'] or 'GPS: '+r['latitude']|string+', '+r['longitude']|string }}
+            </td>
+            <td>
+              {% set st=r['status'] %}
+              <span class="badge badge-{{ 'progress' if st=='In Progress' else st.lower() }}">
+                {% if st=='Pending' %}⏳{% elif st=='In Progress' %}🔄{% elif st=='Resolved' %}✅{% else %}❌{% endif %} {{ st }}
+              </span>
+            </td>
+            <td class="text-sm text-muted">{{ r['created_at'][:10] }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <div style="text-align:center;padding:48px;color:#94a3b8">
+      <div style="font-size:4rem;margin-bottom:12px">🛰️</div>
+      <div style="font-weight:600;font-size:1rem">No satellite reports yet</div>
+      <p style="font-size:.88rem;margin:8px 0 20px">Run a satellite scan to auto-detect civic issues</p>
+      <button onclick="document.getElementById('scanModal').style.display='flex'" class="btn btn-primary">🛰️ Run First Scan</button>
+    </div>
+    {% endif %}
+  </div>
+</div>
+
+<!-- ── SATELLITE CONFIRMED CITIZEN REPORTS ────────────────── -->
+<div class="section-title">✅ Citizen Reports Confirmed by Satellite</div>
+<div class="card mb-6">
+  <div class="card-body" style="padding:0">
+    {% if confirmed %}
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>Report ID</th><th>Citizen</th><th>Title</th><th>Category</th><th>Severity</th><th>Status</th><th>Confirmed</th></tr>
+        </thead>
+        <tbody>
+          {% for r in confirmed %}
+          <tr>
+            <td>
+              <code style="font-size:.8rem;color:#1a56db">{{ r['report_id'] }}</code>
+              <div style="font-size:.72rem;background:#dcfce7;color:#166534;padding:1px 8px;border-radius:99px;display:inline-block;margin-top:2px">✅ Confirmed</div>
+            </td>
+            <td class="text-sm">{{ r['full_name'] }}</td>
+            <td style="font-weight:600;font-size:.9rem">{{ r['title'] }}</td>
+            <td><span style="background:#f1f5f9;padding:3px 9px;border-radius:99px;font-size:.8rem">{{ r['category'] }}</span></td>
+            <td>
+              {% set sev=r['severity'] %}
+              <span class="badge badge-{{ sev.lower() }}">
+                {% if sev=='Critical' %}🔴{% elif sev=='High' %}🟠{% elif sev=='Medium' %}🟡{% else %}🟢{% endif %} {{ sev }}
+              </span>
+            </td>
+            <td>
+              {% set st=r['status'] %}
+              <span class="badge badge-{{ 'progress' if st=='In Progress' else st.lower() }}">{{ st }}</span>
+            </td>
+            <td class="text-sm text-muted">{{ r['updated_at'][:10] if r['updated_at'] else '—' }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <div style="text-align:center;padding:48px;color:#94a3b8">
+      <div style="font-size:3rem;margin-bottom:12px">🔍</div>
+      <div style="font-weight:600">No confirmed reports yet</div>
+      <p style="font-size:.88rem;margin-top:8px">Satellite scans will automatically confirm matching citizen reports</p>
+    </div>
+    {% endif %}
+  </div>
+</div>
+
+<!-- ── SCAN HISTORY ───────────────────────────────────────── -->
+<div class="section-title" id="scan-history">📊 Scan History</div>
+<div class="card mb-6">
+  <div class="card-body" style="padding:0">
+    {% if scans %}
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>Scan ID</th><th>Area</th><th>Date</th><th>Issues Found</th><th>New Reports</th><th>Confirmed</th><th>Status</th></tr>
+        </thead>
+        <tbody>
+          {% for s in scans %}
+          <tr>
+            <td><code style="font-size:.8rem">#{{ s['id'] }}</code></td>
+            <td><strong>{{ s['area_name'] }}</strong><div style="font-size:.78rem;color:#94a3b8">{{ s['latitude'] }}, {{ s['longitude'] }}</div></td>
+            <td class="text-sm text-muted">{{ s['scan_date'][:16] }}</td>
+            <td><span style="font-weight:700;color:#1a56db">{{ s['issues_found'] or 0 }}</span></td>
+            <td><span style="font-weight:700;color:#dc2626">{{ s['new_reports'] or 0 }}</span></td>
+            <td><span style="font-weight:700;color:#16a34a">{{ s['confirmed'] or 0 }}</span></td>
+            <td>
+              {% if s['status'] == 'completed' %}
+                <span class="badge badge-resolved">✅ Completed</span>
+              {% elif s['status'] == 'processing' %}
+                <span class="badge badge-progress">🔄 Processing</span>
+              {% else %}
+                <span class="badge badge-rejected">❌ Failed</span>
+              {% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <div style="text-align:center;padding:48px;color:#94a3b8">
+      <div style="font-size:3rem;margin-bottom:12px">📊</div>
+      <div style="font-weight:600">No scan history yet</div>
+    </div>
+    {% endif %}
+  </div>
+</div>
+
+<!-- ── SCAN MODAL ─────────────────────────────────────────── -->
+<div id="scanModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:9999;align-items:center;justify-content:center">
+  <div style="background:#fff;border-radius:16px;padding:32px;max-width:480px;width:90%;max-height:90vh;overflow-y:auto">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:24px">
+      <h2 style="font-size:1.2rem;font-weight:800">🛰️ Run Satellite Scan</h2>
+      <button onclick="document.getElementById('scanModal').style.display='none'" style="background:none;border:none;font-size:1.5rem;cursor:pointer;color:#94a3b8">×</button>
+    </div>
+    <form method="POST" action="/admin/satellite/scan" onsubmit="showScanProgress()">
+      <div class="form-group"><label>Area Name *</label><input type="text" name="area_name" placeholder="e.g. Downtown District" required></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
+        <div class="form-group"><label>Latitude *</label><input type="number" name="latitude" placeholder="40.7128" step="0.0001" required></div>
+        <div class="form-group"><label>Longitude *</label><input type="number" name="longitude" placeholder="-74.0060" step="0.0001" required></div>
+      </div>
+      <div class="form-group">
+        <label>Scan Radius</label>
+        <select name="radius">
+          <option value="2">2 km — Neighborhood</option>
+          <option value="5" selected>5 km — District</option>
+          <option value="10">10 km — Large Area</option>
+        </select>
+      </div>
+
+      <!-- Preset quick buttons -->
+      <div style="margin-bottom:16px">
+        <p class="text-sm fw-700 mb-4" style="color:#64748b">Quick Presets:</p>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button type="button" class="btn btn-outline btn-sm" onclick="fillCoords('New York',40.7128,-74.0060)">New York</button>
+          <button type="button" class="btn btn-outline btn-sm" onclick="fillCoords('London',51.5074,-0.1278)">London</button>
+          <button type="button" class="btn btn-outline btn-sm" onclick="fillCoords('Mumbai',19.0760,72.8777)">Mumbai</button>
+          <button type="button" class="btn btn-outline btn-sm" onclick="fillCoords('Delhi',28.6139,77.2090)">Delhi</button>
+        </div>
+      </div>
+
+      <div id="scanProgress" style="display:none;text-align:center;padding:16px;background:#f0f7ff;border-radius:8px;margin-bottom:16px">
+        <div style="font-size:2rem;margin-bottom:8px">🛰️</div>
+        <div style="font-weight:700;color:#1e40af">Scanning satellite imagery...</div>
+        <div style="font-size:.82rem;color:#64748b;margin-top:4px">This may take 15-30 seconds. Please wait.</div>
+      </div>
+
+      <div style="display:flex;gap:12px">
+        <button type="submit" class="btn btn-primary" style="flex:1">🛰️ Start Scan</button>
+        <button type="button" class="btn btn-outline" onclick="document.getElementById('scanModal').style.display='none'">Cancel</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+// ── Initialize Map ──────────────────────────────────────────
+const reports = {{ map_json|safe }};
+let allMarkers = [], map;
+
+window.addEventListener('load', function() {
+  map = L.map('satMap').setView([40.7128, -74.0060], 11);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+    {attribution:'© OpenStreetMap'}).addTo(map);
+
+  reports.forEach(r => {
+    if (!r.latitude || !r.longitude) return;
+
+    const isSat      = r.source === 'satellite';
+    const isConfirmed = r.satellite_confirmed === 1;
+    const color = isSat ? '#7c3aed' : isConfirmed ? '#16a34a' :
+                  r.severity === 'Critical' ? '#dc2626' :
+                  r.severity === 'High'     ? '#ea580c' :
+                  r.severity === 'Medium'   ? '#ca8a04' : '#16a34a';
+
+    const icon = L.divIcon({
+      html: `<div style="background:${color};width:16px;height:16px;border-radius:50%;border:3px solid rgba(255,255,255,.9);box-shadow:0 2px 8px rgba(0,0,0,.4);${isSat?'border-style:dashed':''}" title="${r.source}"></div>`,
+      className: '', iconSize: [16,16], iconAnchor: [8,8]
+    });
+
+    const badge = isSat ? '🛰️ Satellite' : isConfirmed ? '✅ Confirmed' : '👤 Citizen';
+    const m = L.marker([r.latitude, r.longitude], {icon})
+      .addTo(map)
+      .bindPopup(`
+        <div style="min-width:200px;font-family:Inter,sans-serif">
+          <div style="font-weight:800;margin-bottom:4px">${r.title}</div>
+          <div style="font-size:.8rem;color:#64748b;margin-bottom:8px">${r.category}</div>
+          <div style="display:flex;gap:6px;flex-wrap:wrap">
+            <span style="background:${color};color:#fff;padding:2px 8px;border-radius:99px;font-size:.72rem">${r.severity}</span>
+            <span style="background:#f1f5f9;color:#475569;padding:2px 8px;border-radius:99px;font-size:.72rem">${badge}</span>
+          </div>
+          <div style="font-size:.75rem;color:#94a3b8;margin-top:6px;font-family:monospace">${r.report_id}</div>
+        </div>`, {maxWidth:260});
+
+    m.source = r.source;
+    m.confirmed = r.satellite_confirmed;
+    allMarkers.push(m);
+  });
+});
+
+function filterMap(type) {
+  allMarkers.forEach(m => {
+    let show = type === 'all' ||
+               (type === 'satellite' && m.source === 'satellite') ||
+               (type === 'citizen'   && m.source !== 'satellite');
+    show ? map.addLayer(m) : map.removeLayer(m);
+  });
+}
+
+// ── Modal helpers ───────────────────────────────────────────
+function fillCoords(name, lat, lng) {
+  const form = document.querySelector('#scanModal form');
+  form.querySelector('[name="area_name"]').value = name;
+  form.querySelector('[name="latitude"]').value  = lat;
+  form.querySelector('[name="longitude"]').value = lng;
+}
+
+function showScanProgress() {
+  document.getElementById('scanProgress').style.display = 'block';
+}
+
+// Quick scan form
+document.getElementById('quickScanForm').addEventListener('submit', function() {
+  document.getElementById('scanBtn').textContent = '🛰️ Scanning...';
+  document.getElementById('scanBtn').disabled = true;
+});
+</script>
+{% endblock %}

@@ -1,0 +1,78 @@
+{% extends "citizen/base_citizen.html" %}
+{% block title %}Track Reports — CivicConnect{% endblock %}
+{% block page_title %}My Reports{% endblock %}
+{% block page_sub %}Track the status of all your submitted reports{% endblock %}
+{% block content %}
+<div class="card mb-6">
+  <div class="card-body" style="padding:16px 22px">
+    <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
+      <span class="text-sm fw-700" style="color:#64748b">Filter:</span>
+      <button class="btn btn-sm btn-primary filter-btn" onclick="filterReports('all',this)">All</button>
+      <button class="btn btn-sm btn-outline filter-btn" onclick="filterReports('Pending',this)">⏳ Pending</button>
+      <button class="btn btn-sm btn-outline filter-btn" onclick="filterReports('In Progress',this)">🔄 In Progress</button>
+      <button class="btn btn-sm btn-outline filter-btn" onclick="filterReports('Resolved',this)">✅ Resolved</button>
+    </div>
+  </div>
+</div>
+{% if reports %}
+<div id="reportsList">
+  {% for r in reports %}
+  <div class="report-card" data-status="{{ r['status'] }}" onclick="toggleDetail('d{{ r['id'] }}')">
+    <div>
+      <div class="rc-id">{{ r['report_id'] }} · {{ r['created_at'][:10] }}</div>
+      <div class="rc-title">{{ r['title'] }}</div>
+      <div class="rc-meta">
+        <span class="rc-cat">{{ r['category'] }}</span>
+        {% set sev=r['severity'] %}<span class="badge badge-{{ sev.lower() }}">{% if sev=='Critical' %}🔴{% elif sev=='High' %}🟠{% elif sev=='Medium' %}🟡{% else %}🟢{% endif %} {{ sev }}</span>
+        {% if r['label'] %}<span class="badge badge-info">🏷️ {{ r['label'] }}</span>{% endif %}
+      </div>
+    </div>
+    <div class="rc-right">
+      {% set st=r['status'] %}<span class="badge badge-{{ 'progress' if st=='In Progress' else st.lower() }}" style="font-size:.85rem;padding:6px 14px">{% if st=='Pending' %}⏳{% elif st=='In Progress' %}🔄{% elif st=='Resolved' %}✅{% else %}❌{% endif %} {{ st }}</span>
+    </div>
+    <div id="d{{ r['id'] }}" style="grid-column:1/-1;display:none;border-top:1px solid #e2e8f0;padding-top:16px;margin-top:4px" onclick="event.stopPropagation()">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px">
+        <div>
+          <p class="text-sm fw-700 mb-4" style="color:#64748b">DESCRIPTION</p>
+          <p class="text-sm">{{ r['description'] }}</p>
+          {% if r['location_address'] %}<p class="text-sm mt-4"><strong>📍 Location:</strong> {{ r['location_address'] }}</p>{% endif %}
+          {% if r['admin_notes'] %}
+          <div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;padding:12px;margin-top:12px">
+            <p class="text-sm fw-700" style="color:#1e40af;margin-bottom:4px">💬 Admin Notes</p>
+            <p class="text-sm">{{ r['admin_notes'] }}</p>
+          </div>
+          {% endif %}
+        </div>
+        <div>
+          {% if r['image_path'] %}<p class="text-sm fw-700 mb-4" style="color:#64748b">PHOTO</p><img src="{{ url_for('static', filename=r['image_path']) }}" style="max-width:100%;border-radius:8px;max-height:180px;object-fit:cover">{% endif %}
+          <p class="text-sm fw-700 mt-4 mb-4" style="color:#64748b">TIMELINE</p>
+          <div class="timeline">
+            <div class="tl-item"><strong>Submitted</strong> — {{ r['created_at'][:16] }}</div>
+            {% if r['status'] in ['In Progress','Resolved'] %}<div class="tl-item"><strong>Under Review</strong> — Admin assigned</div>{% endif %}
+            {% if r['status']=='Resolved' %}<div class="tl-item" style="color:#16a34a"><strong>✅ Resolved</strong> — {{ r['updated_at'][:16] }}</div>{% endif %}
+          </div>
+        </div>
+      </div>
+      <div style="margin-top:16px;display:flex;gap:10px">
+        <a href="{{ url_for('community') }}" class="btn btn-outline btn-sm">🤝 Forward to Community</a>
+        <a href="{{ url_for('get_support') }}" class="btn btn-outline btn-sm">💬 Get Support</a>
+      </div>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% else %}
+<div class="card"><div class="card-body" style="text-align:center;padding:64px 32px">
+  <div style="font-size:4rem;margin-bottom:16px">📭</div>
+  <h3>No reports submitted yet</h3>
+  <p class="text-muted" style="margin:10px 0 24px">Help make your community better by reporting issues.</p>
+  <a href="{{ url_for('report_issue') }}" class="btn btn-primary">+ Submit First Report</a>
+</div></div>
+{% endif %}
+{% endblock %}
+{% block scripts %}
+<script>
+function filterReports(status,btn){document.querySelectorAll('.filter-btn').forEach(b=>{b.className='btn btn-sm btn-outline filter-btn'});btn.className='btn btn-sm btn-primary filter-btn';document.querySelectorAll('.report-card').forEach(card=>{card.style.display=(status==='all'||card.dataset.status===status)?'':'none'});}
+function toggleDetail(id){const el=document.getElementById(id);el.style.display=el.style.display==='block'?'none':'block';}
+</script>
+{% endblock %}

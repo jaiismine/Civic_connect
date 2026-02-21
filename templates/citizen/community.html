@@ -1,0 +1,84 @@
+{% extends "citizen/base_citizen.html" %}
+{% block title %}Community — CivicConnect{% endblock %}
+{% block page_title %}Community Tab{% endblock %}
+{% block page_sub %}Forward unresolved reports and engage with your community{% endblock %}
+{% block content %}
+<div style="display:grid;grid-template-columns:1fr 360px;gap:24px;align-items:start">
+  <div>
+    <div class="section-title">🗣️ Community Reports Feed</div>
+    {% if posts %}
+      {% for post in posts %}
+      <div class="community-post">
+        <div class="post-header">
+          <div class="post-author">
+            <div class="post-avatar">{{ post['author'][0].upper() }}</div>
+            <div><div class="post-name">{{ post['author'] }}</div><div class="post-time">{{ post['created_at'][:16] }}</div></div>
+          </div>
+          <div style="display:flex;gap:8px;align-items:center">
+            {% set sev=post['severity'] %}<span class="badge badge-{{ sev.lower() }}">{% if sev=='Critical' %}🔴{% elif sev=='High' %}🟠{% elif sev=='Medium' %}🟡{% else %}🟢{% endif %} {{ sev }}</span>
+            <span class="badge badge-{{ 'progress' if post['status']=='In Progress' else post['status'].lower() }}">{{ post['status'] }}</span>
+          </div>
+        </div>
+        <div class="post-title">📌 {{ post['report_title'] }}</div>
+        <div style="font-size:.8rem;color:#94a3b8;margin-bottom:8px">Category: {{ post['category'] }}</div>
+        <div class="post-message">{{ post['message'] }}</div>
+        <div class="post-actions">
+          <form method="POST" action="{{ url_for('react_post') }}" style="display:inline">
+            <input type="hidden" name="post_id" value="{{ post['id'] }}"><input type="hidden" name="reaction" value="like">
+            <button type="submit" class="react-btn">👍 <span>{{ post['likes'] }}</span></button>
+          </form>
+          <form method="POST" action="{{ url_for('react_post') }}" style="display:inline">
+            <input type="hidden" name="post_id" value="{{ post['id'] }}"><input type="hidden" name="reaction" value="dislike">
+            <button type="submit" class="react-btn">👎 <span>{{ post['dislikes'] }}</span></button>
+          </form>
+          <span class="text-sm text-muted" style="margin-left:auto">{{ post['likes']+post['dislikes'] }} reactions</span>
+        </div>
+      </div>
+      {% endfor %}
+    {% else %}
+    <div class="card"><div class="card-body" style="text-align:center;padding:64px 32px">
+      <div style="font-size:4rem;margin-bottom:16px">🤝</div>
+      <h3>No community posts yet</h3>
+      <p class="text-muted">Be the first to forward a report!</p>
+    </div></div>
+    {% endif %}
+  </div>
+  <div>
+    <div class="card" style="position:sticky;top:80px">
+      <div class="card-header"><div class="card-title">📢 Forward a Report</div></div>
+      <div class="card-body">
+        <p class="text-sm text-muted mb-4">Got no response? Forward your report to raise community awareness.</p>
+        {% if eligible_reports %}
+        <form method="POST" action="{{ url_for('forward_report') }}">
+          <div class="form-group"><label>Select Your Report</label>
+            <select name="report_id" required><option value="">Choose a report...</option>
+              {% for r in eligible_reports %}<option value="{{ r['id'] }}">{{ r['report_id'] }} – {{ r['title'] }}</option>{% endfor %}
+            </select>
+          </div>
+          <div class="form-group"><label>Message to Community</label><textarea name="message">Forwarding this report to the community — still awaiting a response from authorities.</textarea></div>
+          <button type="submit" class="btn btn-primary btn-full">📢 Forward to Community</button>
+        </form>
+        {% else %}
+        <div style="text-align:center;padding:24px 0;color:#94a3b8">
+          <div style="font-size:2.5rem;margin-bottom:10px">✅</div>
+          <p class="text-sm">All your reports are resolved.</p>
+          <a href="{{ url_for('report_issue') }}" class="btn btn-primary btn-sm mt-4">+ New Report</a>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+    <div class="card mt-4">
+      <div class="card-header"><div class="card-title">📜 Community Guidelines</div></div>
+      <div class="card-body">
+        <ul style="list-style:none;display:flex;flex-direction:column;gap:10px">
+          <li class="text-sm">✅ Be respectful and constructive</li>
+          <li class="text-sm">✅ Only forward genuine unresolved issues</li>
+          <li class="text-sm">✅ Include relevant details in your message</li>
+          <li class="text-sm">🚫 No personal attacks or hate speech</li>
+          <li class="text-sm">🚫 No spam or duplicate posts</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

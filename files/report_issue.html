@@ -1,0 +1,153 @@
+{% extends "citizen/base_citizen.html" %}
+{% block title %}Report Issue — CivicConnect{% endblock %}
+{% block page_title %}Report an Issue{% endblock %}
+{% block page_sub %}Submit a new civic issue with location and photo{% endblock %}
+{% block head %}
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+{% endblock %}
+{% block content %}
+<form method="POST" action="{{ url_for('report_issue') }}" enctype="multipart/form-data">
+  <div style="display:grid;grid-template-columns:1.2fr 1fr;gap:24px;align-items:start">
+    <div>
+      <!-- AI Banner -->
+      <div id="aiBanner" style="display:none;background:linear-gradient(135deg,#1a56db,#0ea5e9);border-radius:12px;padding:16px 20px;margin-bottom:18px;color:#fff">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
+          <span style="font-size:1.4rem">🤖</span>
+          <span style="font-weight:700;font-size:.95rem">AI Analysis Complete</span>
+          <span id="aiConfidence" style="margin-left:auto;background:rgba(255,255,255,.2);padding:2px 10px;border-radius:99px;font-size:.78rem"></span>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">
+          <div style="background:rgba(255,255,255,.15);border-radius:8px;padding:10px">
+            <div style="font-size:.72rem;opacity:.75;margin-bottom:2px">DETECTED CATEGORY</div>
+            <div id="aiCategory" style="font-weight:700;font-size:.95rem"></div>
+          </div>
+          <div style="background:rgba(255,255,255,.15);border-radius:8px;padding:10px">
+            <div style="font-size:.72rem;opacity:.75;margin-bottom:2px">SUGGESTED SEVERITY</div>
+            <div id="aiSeverity" style="font-weight:700;font-size:.95rem"></div>
+          </div>
+        </div>
+        <div style="background:rgba(255,255,255,.12);border-radius:8px;padding:10px;font-size:.85rem">
+          <span style="opacity:.75">AI Reasoning: </span><span id="aiReason"></span>
+        </div>
+        <div style="margin-top:12px;display:flex;gap:8px">
+          <button type="button" onclick="applyAISuggestions()" style="background:#fff;color:#1a56db;border:none;border-radius:8px;padding:8px 18px;font-weight:700;cursor:pointer;font-size:.88rem">✅ Apply AI Suggestions</button>
+          <button type="button" onclick="document.getElementById('aiBanner').style.display='none'" style="background:rgba(255,255,255,.15);color:#fff;border:none;border-radius:8px;padding:8px 18px;font-weight:600;cursor:pointer;font-size:.88rem">Dismiss</button>
+        </div>
+      </div>
+
+      <div class="card mb-4">
+        <div class="card-header">
+          <div class="card-title">📋 Issue Details</div>
+          <button type="button" id="aiClassifyBtn" onclick="runAIClassifier()" class="btn btn-sm" style="background:linear-gradient(135deg,#1a56db,#0ea5e9);color:#fff">🤖 AI Auto-Fill</button>
+        </div>
+        <div class="card-body">
+          <div class="form-group"><label>Issue Title *</label><input type="text" name="title" id="titleInput" placeholder="Brief title of the issue" required></div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+            <div class="form-group"><label>Category *</label>
+              <select name="category" id="categoryInput" required>
+                <option value="">Select Category</option>
+                <option>Roads</option><option>Infrastructure</option><option>Sanitation</option>
+                <option>Utilities</option><option>Parks & Recreation</option><option>Public Safety</option>
+                <option>Drainage</option><option>Street Lighting</option><option>Other</option>
+              </select>
+            </div>
+            <div class="form-group"><label>Severity Level *</label>
+              <select name="severity" id="severityInput" required>
+                <option value="Low">🟢 Low</option><option value="Medium" selected>🟡 Medium</option>
+                <option value="High">🟠 High</option><option value="Critical">🔴 Critical</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-group"><label>Description *</label><textarea name="description" id="descInput" placeholder="Describe the issue in detail — the more you write, the better AI can classify it..." required></textarea></div>
+          <div id="aiLoading" style="display:none;text-align:center;padding:14px;background:#f0f7ff;border-radius:8px;border:1px solid #bfdbfe">
+            <div style="font-size:1.4rem;margin-bottom:6px">🤖</div>
+            <div style="font-size:.88rem;color:#1e40af;font-weight:600">AI is analyzing your report...</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card mb-4">
+        <div class="card-header"><div class="card-title">📸 Photo Evidence</div></div>
+        <div class="card-body">
+          <div class="image-drop-zone">
+            <input type="file" name="image" id="imageFile" accept="image/*">
+            <div class="drop-icon">📷</div>
+            <div class="drop-text">Click or drag to upload photo</div>
+            <div class="drop-sub">Supports JPG, PNG, WebP</div>
+          </div>
+          <img id="imagePreview" src="" alt="Preview" style="max-width:100%;border-radius:8px;margin-top:12px;display:none">
+        </div>
+      </div>
+      <button type="submit" class="btn btn-primary btn-full" style="padding:14px">🚀 Submit Report</button>
+    </div>
+
+    <div>
+      <div class="card" style="position:sticky;top:80px">
+        <div class="card-header">
+          <div class="card-title">📍 Location</div>
+          <button type="button" id="getLocationBtn" class="btn btn-accent btn-sm">📡 Auto-Detect</button>
+        </div>
+        <div class="card-body">
+          <div class="map-preview"><div id="previewMap"></div></div>
+          <div class="form-group mt-4"><label>Address</label><input type="text" name="address" id="addrInput" placeholder="Auto-filled or enter manually"></div>
+          <input type="hidden" name="latitude" id="latInput">
+          <input type="hidden" name="longitude" id="lngInput">
+        </div>
+      </div>
+      <div class="card mt-4">
+        <div class="card-header"><div class="card-title">💡 AI Tips</div></div>
+        <div class="card-body">
+          <ul style="list-style:none;display:flex;flex-direction:column;gap:10px">
+            <li class="text-sm">🤖 Click <strong>AI Auto-Fill</strong> after writing your title and description</li>
+            <li class="text-sm">📝 More detail = more accurate AI classification</li>
+            <li class="text-sm">✅ Review and apply AI suggestions or adjust manually</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+</form>
+{% endblock %}
+{% block scripts %}
+<script>
+let aiData = null;
+async function runAIClassifier() {
+  const title = document.getElementById('titleInput').value.trim();
+  const desc  = document.getElementById('descInput').value.trim();
+  if (!title || !desc) { alert('Please fill in Title and Description first.'); return; }
+  document.getElementById('aiLoading').style.display  = 'block';
+  document.getElementById('aiBanner').style.display   = 'none';
+  document.getElementById('aiClassifyBtn').disabled   = true;
+  document.getElementById('aiClassifyBtn').textContent = '🤖 Analyzing...';
+  try {
+    const res = await fetch('/ai/classify', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({title, description: desc}) });
+    aiData = await res.json();
+    if (aiData.success) {
+      document.getElementById('aiCategory').textContent   = aiData.category;
+      document.getElementById('aiSeverity').textContent   = aiData.severity;
+      document.getElementById('aiReason').textContent     = aiData.priority_reason;
+      document.getElementById('aiConfidence').textContent = aiData.confidence + ' Confidence';
+      document.getElementById('aiBanner').style.display   = 'block';
+    } else { alert('AI error: ' + (aiData.error || 'Unknown')); }
+  } catch(e) { alert('Could not reach AI. Check API key in ai_features.py'); }
+  finally {
+    document.getElementById('aiLoading').style.display   = 'none';
+    document.getElementById('aiClassifyBtn').disabled    = false;
+    document.getElementById('aiClassifyBtn').textContent = '🤖 AI Auto-Fill';
+  }
+}
+function applyAISuggestions() {
+  if (!aiData) return;
+  const cat = document.getElementById('categoryInput');
+  for (let o of cat.options) { if (o.value === aiData.category) { cat.value = aiData.category; break; } }
+  document.getElementById('severityInput').value = aiData.severity;
+  document.getElementById('aiBanner').style.display = 'none';
+  const f = document.createElement('div');
+  f.className = 'alert alert-success';
+  f.innerHTML = '✅ AI suggestions applied!';
+  document.querySelector('.card-body').prepend(f);
+  setTimeout(() => f.remove(), 3000);
+}
+</script>
+{% endblock %}

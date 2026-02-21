@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}CivicConnect{% endblock %}</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  {% block head %}{% endblock %}
+</head>
+<body>
+<div class="app-layout">
+  <aside class="sidebar">
+    <a href="{{ url_for('citizen_dashboard') }}" class="sidebar-brand">
+      <span class="brand-icon">🏛️</span>
+      <div><div class="brand-text">CivicConnect</div><div class="brand-sub">Citizen Portal</div></div>
+    </a>
+    <div class="sidebar-user">
+      <div class="user-avatar">{{ session.full_name[0].upper() if session.full_name else 'C' }}</div>
+      <div>
+        <div class="user-name">{{ session.full_name or session.username }}</div>
+        <div class="user-role">Citizen</div>
+      </div>
+    </div>
+    <nav class="sidebar-nav">
+      <div class="nav-section-title">Main Menu</div>
+      <a href="{{ url_for('citizen_dashboard') }}" class="nav-item {% if request.endpoint == 'citizen_dashboard' %}active{% endif %}"><span class="nav-icon">🏠</span> Dashboard</a>
+      <a href="{{ url_for('report_issue') }}" class="nav-item {% if request.endpoint == 'report_issue' %}active{% endif %}"><span class="nav-icon">📍</span> Report an Issue</a>
+      <a href="{{ url_for('track_reports') }}" class="nav-item {% if request.endpoint == 'track_reports' %}active{% endif %}"><span class="nav-icon">📋</span> Track Reports</a>
+      <a href="{{ url_for('survey') }}" class="nav-item {% if request.endpoint == 'survey' %}active{% endif %}"><span class="nav-icon">📝</span> Take Survey</a>
+      <div class="nav-section-title">Community</div>
+      <a href="{{ url_for('community') }}" class="nav-item {% if request.endpoint == 'community' %}active{% endif %}"><span class="nav-icon">🤝</span> Community Tab</a>
+      <a href="{{ url_for('get_support') }}" class="nav-item {% if request.endpoint == 'get_support' %}active{% endif %}"><span class="nav-icon">💬</span> Get Support</a>
+    </nav>
+    <div class="sidebar-footer">
+      <a href="{{ url_for('logout') }}" class="btn btn-outline btn-full" style="color:#94a3b8;border-color:rgba(255,255,255,.1);font-size:.85rem">🚪 Sign Out</a>
+    </div>
+  </aside>
+  <div class="main-content">
+    <div class="topbar">
+      <div class="topbar-title">
+        <h1>{% block page_title %}Dashboard{% endblock %}</h1>
+        <p>{% block page_sub %}Welcome back, {{ session.full_name }}{% endblock %}</p>
+      </div>
+      <div class="topbar-actions">
+        <span class="topbar-time" id="live-clock"></span>
+        <a href="{{ url_for('report_issue') }}" class="btn btn-primary btn-sm">+ New Report</a>
+      </div>
+    </div>
+    <div class="page-body">
+      {% with messages = get_flashed_messages(with_categories=true) %}
+        {% for category, message in messages %}
+          <div class="alert alert-{{ category }}">{{ '✅' if category == 'success' else '❌' }} {{ message }}</div>
+        {% endfor %}
+      {% endwith %}
+      {% block content %}{% endblock %}
+    </div>
+  </div>
+</div>
+<script src="{{ url_for('static', filename='js/main.js') }}"></script>
+{% block scripts %}{% endblock %}
+</body>
+</html>

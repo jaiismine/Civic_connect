@@ -1,0 +1,52 @@
+{% extends "citizen/base_citizen.html" %}
+{% block title %}Survey — CivicConnect{% endblock %}
+{% block page_title %}Citizen Satisfaction Survey{% endblock %}
+{% block page_sub %}Help us improve city services with your feedback{% endblock %}
+{% block content %}
+<div class="survey-wrap">
+{% if already %}
+<div class="card"><div class="card-body" style="text-align:center;padding:64px 32px">
+  <div style="font-size:4rem;margin-bottom:16px">🎉</div>
+  <h3>Thank you for your feedback!</h3>
+  <p class="text-muted" style="margin:10px 0 24px">You have already completed this survey.</p>
+  <a href="{{ url_for('citizen_dashboard') }}" class="btn btn-primary">← Back to Dashboard</a>
+</div></div>
+{% else %}
+<div class="card mb-6">
+  <div class="card-body" style="padding:16px 22px">
+    <div style="display:flex;justify-content:space-between;margin-bottom:8px">
+      <span class="text-sm fw-700">Survey Progress</span>
+      <span class="text-sm text-muted" id="progressLabel">0 / 5 questions answered</span>
+    </div>
+    <div class="progress-bar"><div class="progress-fill" id="progressFill" style="width:0%;background:linear-gradient(90deg,#1a56db,#0ea5e9)"></div></div>
+  </div>
+</div>
+<form method="POST" action="{{ url_for('survey') }}">
+  {% set questions = [
+    ('q1','How satisfied are you with the overall quality of city services?',['Very Satisfied','Satisfied','Neutral','Dissatisfied','Very Dissatisfied']),
+    ('q2','How would you rate the responsiveness of city officials?',['Excellent','Good','Average','Poor','Very Poor']),
+    ('q3','Which city service needs the most improvement?',['Roads & Infrastructure','Sanitation & Waste','Street Lighting','Water & Utilities','Parks & Public Spaces']),
+    ('q4','How often do you experience civic issues requiring reporting?',['Daily','Weekly','Monthly','Rarely','Never']),
+    ('q5','How likely are you to recommend CivicConnect to a neighbor?',['Definitely Would','Probably Would','Unsure','Probably Would Not','Definitely Would Not'])
+  ] %}
+  {% for name,text,opts in questions %}
+  <div class="survey-q">
+    <div class="survey-q-num">Question {{ loop.index }} of 5</div>
+    <div class="survey-q-text">{{ text }}</div>
+    <div class="radio-group">
+      {% for opt in opts %}
+      <label class="radio-option"><input type="radio" name="{{ name }}" value="{{ opt }}" onchange="updateProgress()" required><span>{{ opt }}</span></label>
+      {% endfor %}
+    </div>
+  </div>
+  {% endfor %}
+  <button type="submit" class="btn btn-primary btn-full" style="padding:14px;font-size:1rem">📤 Submit Survey</button>
+</form>
+{% endif %}
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+function updateProgress(){let a=0;for(let i=1;i<=5;i++){if(document.querySelector(`input[name="q${i}"]:checked`))a++;}document.getElementById('progressLabel').textContent=`${a} / 5 questions answered`;document.getElementById('progressFill').style.width=`${(a/5)*100}%`;}
+</script>
+{% endblock %}

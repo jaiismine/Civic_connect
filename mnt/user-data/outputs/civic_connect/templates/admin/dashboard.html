@@ -1,0 +1,209 @@
+{% extends "admin/base_admin.html" %}
+{% block title %}Admin Dashboard — CivicConnect{% endblock %}
+{% block page_title %}Reports Dashboard{% endblock %}
+{% block page_sub %}Manage, track, and resolve citizen reports{% endblock %}
+
+{% block content %}
+<!-- Stats -->
+<div class="stats-grid">
+  <div class="stat-card blue">
+    <div class="stat-icon">📋</div>
+    <div class="stat-val">{{ stats.total }}</div>
+    <div class="stat-label">Total Reports</div>
+  </div>
+  <div class="stat-card orange">
+    <div class="stat-icon">⏳</div>
+    <div class="stat-val">{{ stats.pending }}</div>
+    <div class="stat-label">Pending</div>
+  </div>
+  <div class="stat-card cyan">
+    <div class="stat-icon">🔄</div>
+    <div class="stat-val">{{ stats.progress }}</div>
+    <div class="stat-label">In Progress</div>
+  </div>
+  <div class="stat-card green">
+    <div class="stat-icon">✅</div>
+    <div class="stat-val">{{ stats.resolved }}</div>
+    <div class="stat-label">Resolved</div>
+  </div>
+  <div class="stat-card red">
+    <div class="stat-icon">🔴</div>
+    <div class="stat-val">{{ stats.critical }}</div>
+    <div class="stat-label">Critical</div>
+  </div>
+  <div class="stat-card purple">
+    <div class="stat-icon">👥</div>
+    <div class="stat-val">{{ stats.citizens }}</div>
+    <div class="stat-label">Citizens</div>
+  </div>
+</div>
+
+<!-- Filter + Search Bar -->
+<div class="card mb-4">
+  <div class="card-body" style="padding:14px 22px">
+    <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:center">
+      <input type="text" id="searchInput" onkeyup="filterTable()" placeholder="🔍 Search reports..." style="padding:8px 14px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:.9rem;outline:none;min-width:220px">
+      <select id="statusFilter" onchange="filterTable()" style="padding:8px 14px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:.9rem;outline:none">
+        <option value="">All Statuses</option>
+        <option>Pending</option>
+        <option>In Progress</option>
+        <option>Resolved</option>
+        <option>Rejected</option>
+      </select>
+      <select id="severityFilter" onchange="filterTable()" style="padding:8px 14px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:.9rem;outline:none">
+        <option value="">All Severities</option>
+        <option>Critical</option>
+        <option>High</option>
+        <option>Medium</option>
+        <option>Low</option>
+      </select>
+      <a href="{{ url_for('map_view') }}" class="btn btn-outline btn-sm" style="margin-left:auto">🗺️ View on Map</a>
+    </div>
+  </div>
+</div>
+
+<!-- Reports Table -->
+<div class="card">
+  <div class="card-header">
+    <div class="card-title">📋 All Citizen Reports</div>
+    <span class="text-sm text-muted">{{ reports | length }} total reports</span>
+  </div>
+  <div class="card-body" style="padding:0">
+    <div class="table-wrap">
+      <table id="reportsTable">
+        <thead>
+          <tr>
+            <th>Report ID</th>
+            <th>Citizen</th>
+            <th>Title</th>
+            <th>Category</th>
+            <th>Severity</th>
+            <th>Status</th>
+            <th>Label</th>
+            <th>Date</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for r in reports %}
+          <tr data-status="{{ r['status'] }}" data-severity="{{ r['severity'] }}" data-search="{{ r['title'].lower() }} {{ r['full_name'].lower() }} {{ r['category'].lower() }} {{ r['report_id'].lower() }}">
+            <td><code style="font-size:.8rem;color:#1a56db">{{ r['report_id'] }}</code></td>
+            <td>
+              <div style="display:flex;align-items:center;gap:8px">
+                <div class="user-avatar" style="width:28px;height:28px;font-size:.75rem">{{ r['full_name'][0] }}</div>
+                <span class="text-sm">{{ r['full_name'] }}</span>
+              </div>
+            </td>
+            <td>
+              <strong style="font-size:.9rem">{{ r['title'] }}</strong>
+              {% if r['admin_notes'] %}
+              <div style="font-size:.78rem;color:#94a3b8;margin-top:2px">💬 Has notes</div>
+              {% endif %}
+            </td>
+            <td><span style="background:#f1f5f9;padding:3px 9px;border-radius:99px;font-size:.8rem">{{ r['category'] }}</span></td>
+            <td>
+              {% set sev = r['severity'] %}
+              <span class="badge badge-{{ sev.lower() }}">
+                {% if sev == 'Critical' %}🔴{% elif sev == 'High' %}🟠{% elif sev == 'Medium' %}🟡{% else %}🟢{% endif %} {{ sev }}
+              </span>
+            </td>
+            <td>
+              {% set st = r['status'] %}
+              <span class="badge badge-{{ 'progress' if st == 'In Progress' else st.lower() }}">
+                {% if st == 'Pending' %}⏳{% elif st == 'In Progress' %}🔄{% elif st == 'Resolved' %}✅{% else %}❌{% endif %} {{ st }}
+              </span>
+            </td>
+            <td>
+              {% if r['label'] %}<span class="badge badge-info">🏷️ {{ r['label'] }}</span>{% else %}<span class="text-muted text-sm">—</span>{% endif %}
+            </td>
+            <td class="text-sm text-muted">{{ r['created_at'][:10] }}</td>
+            <td>
+              <button onclick="openEditModal({{ r['id'] }}, '{{ r['status'] }}', '{{ r['severity'] }}', '{{ r['label'] or '' }}', `{{ r['admin_notes'] or '' }}`)"
+                      class="btn btn-outline btn-sm">✏️ Edit</button>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- Edit Modal -->
+<div class="modal-overlay" id="editModal">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title">✏️ Update Report</div>
+      <button class="modal-close" onclick="closeModal('editModal')">×</button>
+    </div>
+    <div class="modal-body">
+      <form method="POST" action="{{ url_for('update_report') }}">
+        <input type="hidden" name="report_id" id="editReportId">
+        <div class="form-group">
+          <label>Status</label>
+          <select name="status" id="editStatus">
+            <option>Pending</option>
+            <option>In Progress</option>
+            <option>Resolved</option>
+            <option>Rejected</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Severity</label>
+          <select name="severity" id="editSeverity">
+            <option>Low</option>
+            <option>Medium</option>
+            <option>High</option>
+            <option>Critical</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Label / Tag</label>
+          <select name="label" id="editLabel">
+            <option value="">No Label</option>
+            <option>Verified</option>
+            <option>Duplicate</option>
+            <option>Urgent</option>
+            <option>Weather-Related</option>
+            <option>Needs Site Visit</option>
+            <option>Escalated</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Admin Notes</label>
+          <textarea name="admin_notes" id="editNotes" placeholder="Add internal notes or feedback to citizen..."></textarea>
+        </div>
+        <div style="display:flex;gap:12px">
+          <button type="submit" class="btn btn-primary">💾 Save Changes</button>
+          <button type="button" class="btn btn-outline" onclick="closeModal('editModal')">Cancel</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function openEditModal(id, status, severity, label, notes) {
+  document.getElementById('editReportId').value = id;
+  document.getElementById('editStatus').value   = status;
+  document.getElementById('editSeverity').value = severity;
+  document.getElementById('editLabel').value    = label;
+  document.getElementById('editNotes').value    = notes;
+  openModal('editModal');
+}
+
+function filterTable() {
+  const search   = document.getElementById('searchInput').value.toLowerCase();
+  const status   = document.getElementById('statusFilter').value;
+  const severity = document.getElementById('severityFilter').value;
+  document.querySelectorAll('#reportsTable tbody tr').forEach(row => {
+    const matchSearch   = !search   || row.dataset.search.includes(search);
+    const matchStatus   = !status   || row.dataset.status   === status;
+    const matchSeverity = !severity || row.dataset.severity === severity;
+    row.style.display = (matchSearch && matchStatus && matchSeverity) ? '' : 'none';
+  });
+}
+</script>
+{% endblock %}

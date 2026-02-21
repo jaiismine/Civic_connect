@@ -1,0 +1,72 @@
+{% extends "admin/base_admin.html" %}
+{% block title %}Weather Alerts — CivicConnect{% endblock %}
+{% block page_title %}Weather Alerts{% endblock %}
+{% block page_sub %}5-day forecast and weather-sensitive critical reports{% endblock %}
+{% block content %}
+{% set alert_days = weather|selectattr('alert')|list %}
+{% if alert_days %}
+<div class="alert alert-warning mb-6">⚠️ <strong>Weather Alert Active:</strong> Severe weather expected on {{ alert_days|map(attribute='date')|join(', ') }}. {{ critical_reports|list|length }} critical/high reports may be impacted.</div>
+{% endif %}
+<div class="section-title">🌤️ 5-Day Weather Forecast</div>
+<div class="weather-grid mb-6">
+  {% for day in weather %}
+  <div class="weather-card {% if day.alert %}alert-day{% endif %}">
+    <div class="w-date">{{ day.date }}</div>
+    <div class="w-icon">{{ day.icon }}</div>
+    <div class="w-condition">{{ day.condition }}</div>
+    <div class="w-temp"><span class="w-high">{{ day.high }}°C</span><span style="color:#cbd5e1">/</span><span class="w-low">{{ day.low }}°C</span></div>
+    <div class="w-meta"><div>💧 Rain: {{ day.rain_chance }}%</div><div>💨 Wind: {{ day.wind }} km/h</div></div>
+    {% if day.alert %}<div class="w-alert-tag">⚠️ ALERT</div>{% endif %}
+  </div>
+  {% endfor %}
+</div>
+<div class="grid-2 mb-6">
+  <div class="card">
+    <div class="card-header"><div class="card-title">📊 Risk Analysis</div></div>
+    <div class="card-body">
+      <div style="display:flex;flex-direction:column;gap:14px">
+        {% for label,val,color in [('Flooding Risk',65,'#3b82f6'),('Road Damage',80,'#ef4444'),('Power Outage',45,'#f59e0b'),('Tree Falls',55,'#10b981'),('Drainage Issues',70,'#8b5cf6')] %}
+        <div>
+          <div style="display:flex;justify-content:space-between;margin-bottom:4px"><span class="text-sm fw-700">{{ label }}</span><span class="text-sm text-muted">{{ val }}%</span></div>
+          <div class="progress-bar"><div class="progress-fill" style="width:{{ val }}%;background:{{ color }}"></div></div>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-header"><div class="card-title">⚠️ Alert Summary</div></div>
+    <div class="card-body">
+      <div style="display:flex;flex-direction:column;gap:12px">
+        <div style="display:flex;align-items:center;gap:12px;padding:12px;background:#fff5f5;border-radius:8px;border:1px solid #fecaca"><div style="font-size:1.8rem">🔴</div><div><div style="font-weight:700;color:#dc2626">Critical Reports</div><div style="font-size:.85rem;color:#64748b">{{ critical_reports|selectattr('severity','equalto','Critical')|list|length }} at critical level</div></div></div>
+        <div style="display:flex;align-items:center;gap:12px;padding:12px;background:#fff7ed;border-radius:8px;border:1px solid #fed7aa"><div style="font-size:1.8rem">🟠</div><div><div style="font-weight:700;color:#ea580c">High Priority</div><div style="font-size:.85rem;color:#64748b">{{ critical_reports|selectattr('severity','equalto','High')|list|length }} at high level</div></div></div>
+        <div style="display:flex;align-items:center;gap:12px;padding:12px;background:#eff6ff;border-radius:8px;border:1px solid #bfdbfe"><div style="font-size:1.8rem">📍</div><div><div style="font-weight:700;color:#1e40af">Total Affected</div><div style="font-size:.85rem;color:#64748b">{{ critical_reports|list|length }} reports need monitoring</div></div></div>
+      </div>
+    </div>
+  </div>
+</div>
+<div class="section-title">🚨 Critical & High Severity Reports</div>
+<div class="card">
+  <div class="card-body" style="padding:0">
+    {% if critical_reports %}
+    <div class="table-wrap"><table>
+      <thead><tr><th>Report ID</th><th>Citizen</th><th>Title</th><th>Category</th><th>Location</th><th>Severity</th><th>Status</th><th>Weather Risk</th></tr></thead>
+      <tbody>
+        {% for r in critical_reports %}
+        <tr>
+          <td><code style="font-size:.8rem;color:#1a56db">{{ r['report_id'] }}</code></td>
+          <td class="text-sm">{{ r['full_name'] }}</td>
+          <td><strong>{{ r['title'] }}</strong></td>
+          <td><span style="background:#f1f5f9;padding:3px 8px;border-radius:99px;font-size:.78rem">{{ r['category'] }}</span></td>
+          <td class="text-sm text-muted">{{ r['location_address'] or 'N/A' }}</td>
+          <td>{% set sev=r['severity'] %}<span class="badge badge-{{ sev.lower() }}">{% if sev=='Critical' %}🔴{% else %}🟠{% endif %} {{ sev }}</span></td>
+          <td>{% set st=r['status'] %}<span class="badge badge-{{ 'progress' if st=='In Progress' else st.lower() }}">{{ st }}</span></td>
+          <td>{% if r['category'] in ['Roads','Drainage','Infrastructure'] %}<span class="badge" style="background:#fee2e2;color:#991b1b">🌧️ High Risk</span>{% elif r['category'] in ['Utilities','Street Lighting'] %}<span class="badge" style="background:#fef3c7;color:#92400e">⚡ Med Risk</span>{% else %}<span class="badge badge-low">✅ Low Risk</span>{% endif %}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table></div>
+    {% else %}<div style="text-align:center;padding:48px;color:#94a3b8"><div style="font-size:3rem;margin-bottom:12px">✅</div><div style="font-weight:600">No critical reports pending</div></div>{% endif %}
+  </div>
+</div>
+{% endblock %}

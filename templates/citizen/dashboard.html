@@ -1,0 +1,55 @@
+{% extends "citizen/base_citizen.html" %}
+{% block title %}Dashboard — CivicConnect{% endblock %}
+{% block page_title %}My Dashboard{% endblock %}
+{% block page_sub %}Here's an overview of your civic activity{% endblock %}
+{% block content %}
+<div class="stats-grid">
+  <div class="stat-card blue"><div class="stat-icon">📋</div><div class="stat-val">{{ total }}</div><div class="stat-label">Total Reports</div></div>
+  <div class="stat-card orange"><div class="stat-icon">⏳</div><div class="stat-val">{{ pending }}</div><div class="stat-label">Pending</div></div>
+  <div class="stat-card green"><div class="stat-icon">✅</div><div class="stat-val">{{ resolved }}</div><div class="stat-label">Resolved</div></div>
+  <div class="stat-card cyan"><div class="stat-icon">🔄</div><div class="stat-val">{{ total - pending - resolved }}</div><div class="stat-label">In Progress</div></div>
+</div>
+<div class="card mb-6">
+  <div class="card-header"><div class="card-title">⚡ Quick Actions</div></div>
+  <div class="card-body">
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:14px">
+      <a href="{{ url_for('report_issue') }}" class="btn btn-primary" style="flex-direction:column;gap:6px;padding:20px"><span style="font-size:1.8rem">📍</span><span>Report Issue</span></a>
+      <a href="{{ url_for('track_reports') }}" class="btn btn-outline" style="flex-direction:column;gap:6px;padding:20px"><span style="font-size:1.8rem">📋</span><span>Track Reports</span></a>
+      <a href="{{ url_for('community') }}" class="btn btn-outline" style="flex-direction:column;gap:6px;padding:20px"><span style="font-size:1.8rem">🤝</span><span>Community</span></a>
+      <a href="{{ url_for('get_support') }}" class="btn btn-outline" style="flex-direction:column;gap:6px;padding:20px"><span style="font-size:1.8rem">💬</span><span>Get Support</span></a>
+      <a href="{{ url_for('survey') }}" class="btn btn-outline" style="flex-direction:column;gap:6px;padding:20px"><span style="font-size:1.8rem">📝</span><span>Take Survey</span></a>
+    </div>
+  </div>
+</div>
+<div class="card">
+  <div class="card-header"><div class="card-title">🕒 Recent Reports</div><a href="{{ url_for('track_reports') }}" class="btn btn-outline btn-sm">View All</a></div>
+  <div class="card-body" style="padding:0">
+    {% if reports %}
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Report ID</th><th>Title</th><th>Category</th><th>Severity</th><th>Status</th><th>Date</th></tr></thead>
+        <tbody>
+          {% for r in reports %}
+          <tr>
+            <td><code style="font-size:.8rem;color:#1a56db">{{ r['report_id'] }}</code></td>
+            <td><strong>{{ r['title'] }}</strong></td>
+            <td><span style="background:#f1f5f9;padding:3px 10px;border-radius:99px;font-size:.8rem">{{ r['category'] }}</span></td>
+            <td>{% set sev=r['severity'] %}<span class="badge badge-{{ sev.lower() }}">{% if sev=='Critical' %}🔴{% elif sev=='High' %}🟠{% elif sev=='Medium' %}🟡{% else %}🟢{% endif %} {{ sev }}</span></td>
+            <td>{% set st=r['status'] %}<span class="badge badge-{{ 'progress' if st=='In Progress' else st.lower() }}">{% if st=='Pending' %}⏳{% elif st=='In Progress' %}🔄{% elif st=='Resolved' %}✅{% else %}❌{% endif %} {{ st }}</span></td>
+            <td class="text-muted text-sm">{{ r['created_at'][:10] }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <div style="text-align:center;padding:48px;color:#94a3b8">
+      <div style="font-size:3rem;margin-bottom:12px">📭</div>
+      <div style="font-weight:600;font-size:1.05rem">No reports yet</div>
+      <p style="font-size:.88rem;margin:8px 0 20px">Be the first to help improve your community!</p>
+      <a href="{{ url_for('report_issue') }}" class="btn btn-primary">+ Submit First Report</a>
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

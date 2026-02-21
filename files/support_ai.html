@@ -1,0 +1,252 @@
+{% extends "citizen/base_citizen.html" %}
+{% block title %}Get Support — CivicConnect{% endblock %}
+{% block page_title %}Get Support{% endblock %}
+{% block page_sub %}Reach city officials or chat with our AI assistant{% endblock %}
+
+{% block content %}
+<!-- Support Type Selection -->
+<div class="section-title">🎯 Choose Support Type</div>
+<div class="support-cards mb-6">
+  <div class="support-option" onclick="selectSupport(this,'Start Consultation')">
+    <div class="support-icon">🎯</div>
+    <div class="support-title">Start Consultation</div>
+    <div class="support-desc">Schedule a formal consultation with the relevant department.</div>
+    <button class="btn btn-primary btn-sm" style="margin-top:16px">Request Consultation</button>
+  </div>
+  <div class="support-option" onclick="selectSupport(this,'Active Chat')">
+    <div class="support-icon">💬</div>
+    <div class="support-title">Active Chat</div>
+    <div class="support-desc">Start a real-time chat with a city representative.</div>
+    <button class="btn btn-accent btn-sm" style="margin-top:16px">Start Chat</button>
+  </div>
+  <div class="support-option" onclick="selectSupport(this,'Quick Connect')">
+    <div class="support-icon">⚡</div>
+    <div class="support-title">Quick Connect</div>
+    <div class="support-desc">Fast response from priority departments for urgent matters.</div>
+    <button class="btn btn-danger btn-sm" style="margin-top:16px">Quick Connect</button>
+  </div>
+</div>
+
+<!-- Human Support Form -->
+<div id="supportForm" style="display:none">
+  <div class="card mb-6">
+    <div class="card-header">
+      <div class="card-title">📝 Submit Request</div>
+      <span id="selectedTypeLabel" class="badge badge-info"></span>
+    </div>
+    <div class="card-body">
+      <form method="POST" action="{{ url_for('get_support') }}">
+        <input type="hidden" name="type" id="supportType">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:18px">
+          <div class="form-group"><label>Department *</label>
+            <select name="department" required>
+              <option value="">Select Department</option>
+              <option>Roads & Infrastructure</option><option>Sanitation & Environment</option>
+              <option>Water & Utilities</option><option>Public Safety</option>
+              <option>Parks & Recreation</option><option>Emergency Services</option>
+              <option>City Planning</option><option>General Enquiry</option>
+            </select>
+          </div>
+          <div class="form-group"><label>Priority</label>
+            <select name="priority"><option>Normal</option><option>High</option><option>Urgent</option></select>
+          </div>
+        </div>
+        <div class="form-group"><label>Your Message *</label><textarea name="message" placeholder="Describe your issue..." required style="min-height:120px"></textarea></div>
+        <div style="display:flex;gap:12px">
+          <button type="submit" class="btn btn-primary">📤 Submit</button>
+          <button type="button" class="btn btn-outline" onclick="document.getElementById('supportForm').style.display='none'">Cancel</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- ── AI CHATBOT ─────────────────────────────────────────────────── -->
+<div class="section-title">🤖 CivicAssist AI — Instant Support</div>
+<div class="card mb-6">
+  <div class="card-header">
+    <div style="display:flex;align-items:center;gap:12px">
+      <div style="width:38px;height:38px;background:linear-gradient(135deg,#1a56db,#0ea5e9);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:1.1rem">🤖</div>
+      <div>
+        <div style="font-weight:700">CivicAssist AI</div>
+        <div style="font-size:.78rem;color:#16a34a;display:flex;align-items:center;gap:4px"><span style="width:7px;height:7px;background:#16a34a;border-radius:50%;display:inline-block"></span> Online — powered by Claude AI</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Chat Messages -->
+  <div id="chatMessages" style="height:380px;overflow-y:auto;padding:20px;display:flex;flex-direction:column;gap:14px;background:#f8fafc">
+    <!-- Welcome message -->
+    <div style="display:flex;gap:10px;align-items:flex-start">
+      <div style="width:32px;height:32px;background:linear-gradient(135deg,#1a56db,#0ea5e9);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.85rem;flex-shrink:0">🤖</div>
+      <div style="background:#fff;border:1px solid #e2e8f0;border-radius:12px;border-bottom-left-radius:4px;padding:12px 16px;max-width:75%;font-size:.9rem;box-shadow:0 1px 4px rgba(0,0,0,.05)">
+        👋 Hi <strong>{{ session.full_name }}</strong>! I'm CivicAssist, your AI support agent.<br><br>
+        I can help you with:
+        <ul style="margin:8px 0 0 16px;font-size:.85rem;color:#64748b">
+          <li>Checking status of your reports</li>
+          <li>Escalating unresolved issues</li>
+          <li>Finding the right department</li>
+          <li>General civic guidance</li>
+        </ul>
+        <div style="margin-top:10px;font-size:.85rem;color:#64748b">What can I help you with today?</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Quick Reply Buttons -->
+  <div id="quickReplies" style="padding:10px 20px;display:flex;gap:8px;flex-wrap:wrap;border-top:1px solid #f1f5f9">
+    <button class="react-btn" onclick="sendQuickReply('What is the status of my reports?')">📋 My report status</button>
+    <button class="react-btn" onclick="sendQuickReply('How do I escalate an unresolved report?')">📢 How to escalate</button>
+    <button class="react-btn" onclick="sendQuickReply('Which department handles road issues?')">🛣️ Road issues</button>
+    <button class="react-btn" onclick="sendQuickReply('My report has been pending for too long')">⏳ Pending too long</button>
+  </div>
+
+  <!-- Chat Input -->
+  <div style="padding:14px 20px;border-top:1px solid #e2e8f0;display:flex;gap:10px;background:#fff">
+    <input type="text" id="chatInput" placeholder="Type your message here..." onkeydown="if(event.key==='Enter')sendChat()"
+      style="flex:1;padding:10px 16px;border:1.5px solid #e2e8f0;border-radius:99px;font-size:.9rem;outline:none">
+    <button onclick="sendChat()" id="sendBtn" class="btn btn-primary btn-sm" style="border-radius:99px;padding:10px 20px">Send ➤</button>
+  </div>
+</div>
+
+<!-- Previous Support Requests -->
+<div class="section-title">📁 My Support Requests</div>
+{% if consultations %}
+<div class="card">
+  <div class="card-body" style="padding:0"><div class="table-wrap"><table>
+    <thead><tr><th>Type</th><th>Department</th><th>Message</th><th>Status</th><th>Reply</th><th>Date</th></tr></thead>
+    <tbody>
+      {% for c in consultations %}
+      <tr>
+        <td>{% if c['type']=='Start Consultation' %}🎯{% elif c['type']=='Active Chat' %}💬{% else %}⚡{% endif %} <strong>{{ c['type'] }}</strong></td>
+        <td>{{ c['department'] or '—' }}</td>
+        <td><span style="font-size:.85rem;color:#64748b;display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:200px">{{ c['message'] }}</span></td>
+        <td><span class="badge badge-{{ 'progress' if c['status']=='Open' else 'resolved' }}">{{ '🔓 Open' if c['status']=='Open' else '✅ Closed' }}</span></td>
+        <td class="text-sm">{{ c['admin_reply'] or 'Awaiting...' }}</td>
+        <td class="text-muted text-sm">{{ c['created_at'][:10] }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table></div></div>
+</div>
+{% else %}
+<div class="card"><div class="card-body" style="text-align:center;padding:40px">
+  <div style="font-size:3rem;margin-bottom:12px">📭</div>
+  <h3>No support requests yet</h3>
+  <p class="text-muted">Use the options above to get started.</p>
+</div></div>
+{% endif %}
+
+<!-- Emergency Contacts -->
+<div class="card mt-6">
+  <div class="card-header"><div class="card-title">📞 Emergency Contacts</div></div>
+  <div class="card-body">
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:14px">
+      <div style="padding:14px;background:#fff5f5;border:1px solid #fecaca;border-radius:10px;text-align:center"><div style="font-size:1.8rem">🚨</div><div style="font-weight:700;color:#dc2626">Emergency</div><div style="font-weight:800;color:#991b1b;font-size:1.2rem">911</div></div>
+      <div style="padding:14px;background:#eff6ff;border:1px solid #bfdbfe;border-radius:10px;text-align:center"><div style="font-size:1.8rem">🏛️</div><div style="font-weight:700;color:#1e40af">City Hall</div><div style="color:#1e40af">(555) 100-2000</div></div>
+      <div style="padding:14px;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:10px;text-align:center"><div style="font-size:1.8rem">💧</div><div style="font-weight:700;color:#166534">Water Dept.</div><div style="color:#166534">(555) 100-3000</div></div>
+      <div style="padding:14px;background:#fefce8;border:1px solid #fde68a;border-radius:10px;text-align:center"><div style="font-size:1.8rem">🔧</div><div style="font-weight:700;color:#92400e">Public Works</div><div style="color:#92400e">(555) 100-4000</div></div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let chatHistory = [];
+
+function selectSupport(card, type) {
+  document.querySelectorAll('.support-option').forEach(c => c.classList.remove('selected'));
+  card.classList.add('selected');
+  document.getElementById('supportType').value = type;
+  document.getElementById('selectedTypeLabel').textContent = type;
+  const f = document.getElementById('supportForm');
+  f.style.display = 'block';
+  f.scrollIntoView({ behavior: 'smooth' });
+}
+
+function addMessage(role, text) {
+  const container = document.getElementById('chatMessages');
+  const isUser = role === 'user';
+  const div = document.createElement('div');
+  div.style.cssText = `display:flex;gap:10px;align-items:flex-start;${isUser ? 'flex-direction:row-reverse' : ''}`;
+
+  const avatar = document.createElement('div');
+  avatar.style.cssText = `width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.85rem;flex-shrink:0;${isUser ? 'background:linear-gradient(135deg,#667eea,#764ba2);color:#fff;font-weight:700' : 'background:linear-gradient(135deg,#1a56db,#0ea5e9)'}`;
+  avatar.textContent = isUser ? '{{ session.full_name[0].upper() if session.full_name else "U" }}' : '🤖';
+
+  const bubble = document.createElement('div');
+  bubble.style.cssText = `padding:12px 16px;border-radius:12px;max-width:75%;font-size:.9rem;line-height:1.5;${isUser ? 'background:#1a56db;color:#fff;border-bottom-right-radius:4px' : 'background:#fff;border:1px solid #e2e8f0;border-bottom-left-radius:4px;box-shadow:0 1px 4px rgba(0,0,0,.05)'}`;
+  bubble.textContent = text;
+
+  div.appendChild(avatar);
+  div.appendChild(bubble);
+  container.appendChild(div);
+  container.scrollTop = container.scrollHeight;
+}
+
+function addTyping() {
+  const container = document.getElementById('chatMessages');
+  const div = document.createElement('div');
+  div.id = 'typingIndicator';
+  div.style.cssText = 'display:flex;gap:10px;align-items:flex-start';
+  div.innerHTML = `
+    <div style="width:32px;height:32px;background:linear-gradient(135deg,#1a56db,#0ea5e9);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.85rem;flex-shrink:0">🤖</div>
+    <div style="background:#fff;border:1px solid #e2e8f0;border-radius:12px;border-bottom-left-radius:4px;padding:12px 16px;box-shadow:0 1px 4px rgba(0,0,0,.05)">
+      <div style="display:flex;gap:4px;align-items:center">
+        <div style="width:7px;height:7px;background:#94a3b8;border-radius:50%;animation:bounce 1s infinite"></div>
+        <div style="width:7px;height:7px;background:#94a3b8;border-radius:50%;animation:bounce 1s infinite .2s"></div>
+        <div style="width:7px;height:7px;background:#94a3b8;border-radius:50%;animation:bounce 1s infinite .4s"></div>
+      </div>
+    </div>`;
+  container.appendChild(div);
+  container.scrollTop = container.scrollHeight;
+}
+
+async function sendChat() {
+  const input = document.getElementById('chatInput');
+  const msg   = input.value.trim();
+  if (!msg) return;
+
+  input.value = '';
+  document.getElementById('sendBtn').disabled = true;
+  document.getElementById('quickReplies').style.display = 'none';
+
+  addMessage('user', msg);
+  chatHistory.push({ role: 'user', content: msg });
+  addTyping();
+
+  try {
+    const res  = await fetch('/ai/chat', {
+      method : 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body   : JSON.stringify({ message: msg, history: chatHistory })
+    });
+    const data = await res.json();
+    document.getElementById('typingIndicator')?.remove();
+
+    const reply = data.reply || 'Sorry, I could not process that.';
+    addMessage('assistant', reply);
+    chatHistory.push({ role: 'assistant', content: reply });
+
+  } catch(e) {
+    document.getElementById('typingIndicator')?.remove();
+    addMessage('assistant', 'I am having trouble connecting. Please check your API key in ai_features.py.');
+  }
+
+  document.getElementById('sendBtn').disabled = false;
+  input.focus();
+}
+
+function sendQuickReply(text) {
+  document.getElementById('chatInput').value = text;
+  sendChat();
+}
+</script>
+<style>
+@keyframes bounce {
+  0%,80%,100%{transform:translateY(0)}
+  40%{transform:translateY(-6px)}
+}
+</style>
+{% endblock %}

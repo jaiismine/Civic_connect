@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}Admin — CivicConnect{% endblock %}</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  {% block head %}{% endblock %}
+</head>
+<body>
+<div class="app-layout">
+  <aside class="sidebar" style="background:#0f0f23">
+    <a href="{{ url_for('admin_dashboard') }}" class="sidebar-brand">
+      <span class="brand-icon">🛡️</span>
+      <div><div class="brand-text">CivicConnect</div><div class="brand-sub">Admin Panel</div></div>
+    </a>
+    <div class="sidebar-user">
+      <div class="user-avatar" style="background:linear-gradient(135deg,#dc2626,#ea580c)">A</div>
+      <div><div class="user-name">{{ session.full_name or session.username }}</div><div class="user-role">Administrator</div></div>
+    </div>
+    <nav class="sidebar-nav">
+      <div class="nav-section-title">Administration</div>
+      <a href="{{ url_for('admin_dashboard') }}" class="nav-item {% if request.endpoint=='admin_dashboard' %}active{% endif %}"><span class="nav-icon">📊</span> Dashboard</a>
+      <a href="{{ url_for('weather_alert') }}" class="nav-item {% if request.endpoint=='weather_alert' %}active{% endif %}"><span class="nav-icon">🌤️</span> Weather Alerts</a>
+      <a href="{{ url_for('map_view') }}" class="nav-item {% if request.endpoint=='map_view' %}active{% endif %}"><span class="nav-icon">🗺️</span> Reports Map</a>
+      <a href="{{ url_for('satellite.satellite_dashboard') }}" class="nav-item {% if request.endpoint=='satellite.satellite_dashboard' %}active{% endif %}"><span class="nav-icon">🛰️</span> Satellite</a>
+    </nav>
+    <div class="sidebar-footer">
+      <a href="{{ url_for('logout') }}" class="btn btn-outline btn-full" style="color:#94a3b8;border-color:rgba(255,255,255,.1);font-size:.85rem">🚪 Sign Out</a>
+    </div>
+  </aside>
+  <div class="main-content">
+    <div class="topbar">
+      <div class="topbar-title">
+        <h1>{% block page_title %}Dashboard{% endblock %}</h1>
+        <p>{% block page_sub %}City Administration Panel{% endblock %}</p>
+      </div>
+      <div class="topbar-actions">
+        <span class="topbar-time" id="live-clock"></span>
+        <span class="badge badge-critical">🛡️ Admin</span>
+      </div>
+    </div>
+    <div class="page-body">
+      {% with messages = get_flashed_messages(with_categories=true) %}
+        {% for category, message in messages %}
+          <div class="alert alert-{{ category }}">{{ '✅' if category=='success' else '❌' }} {{ message }}</div>
+        {% endfor %}
+      {% endwith %}
+      {% block content %}{% endblock %}
+    </div>
+  </div>
+</div>
+<script src="{{ url_for('static', filename='js/main.js') }}"></script>
+{% block scripts %}{% endblock %}
+</body>
+</html>
